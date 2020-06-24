@@ -1,0 +1,53 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>ParserCodeGenBlazor</title>
+    <base href="/" />
+    <link href="css/bootstrap/bootstrap.min.css" rel="stylesheet" />
+    <link href="css/site.css" rel="stylesheet" />
+</head>
+
+<body>
+    <app>Loading...</app>
+
+    <div id="blazor-error-ui">
+        An unhandled error has occurred.
+        <a href="" class="reload">Reload</a>
+        <a class="dismiss">🗙</a>
+    </div>
+    <script src="_framework/blazor.webassembly.js"></script>
+    <script src="js/fileupload.js"></script>
+    <script type="text/javascript">
+        function saveAsFile(filename, bytesBase64) {
+            var link = document.createElement('a');
+            link.download = filename;
+            link.href = "data:application/octet-stream;base64," + bytesBase64;
+            document.body.appendChild(link); // Needed for Firefox
+            link.click();
+            document.body.removeChild(link);
+        }
+        window.clipboardCopy = {
+            copyText: function (text) {
+                navigator.clipboard.writeText(text).then(function () {
+                    alert("Copied to clipboard!");
+                })
+                    .catch(function (error) {
+                        alert(error);
+                    });
+            },
+            copyElementText: function (codeElement) {
+                navigator.clipboard.writeText(codeElement.textContent).then(function () {
+                    alert("Copied to clipboard!");
+                })
+                    .catch(function (error) {
+                        alert(error);
+                    });
+            }
+        };
+    </script>
+</body>
+
+</html>

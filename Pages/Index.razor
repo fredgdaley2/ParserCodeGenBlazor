@@ -1,0 +1,375 @@
+﻿@page "/"
+@inject IJSRuntime js
+@inject HttpClient client
+@inject NavigationManager UriHelper
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col">
+            <div class="card">
+                <h5 class="card-header">File Type</h5>
+                <div class="card-body">
+                    <div class="form-check form-check-inline">
+                        <RadioButtonNoLabel class="form-check-input"
+                                            name="FileType" id="Delimited"
+                                            TValue="FileTypes"
+                                            ButtonValue="@(FileTypes.Delimited)"
+                                            @bind-SelectedValue="CodeGenModel.FileType"
+                                            OnChangeCallBack="@DelimterChangedHander" />
+                        <label class="form-check-label" for="Delimited">Delimited</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <RadioButtonNoLabel class="form-check-input" name="FileType" id="FixedWidth" TValue="FileTypes" ButtonValue="@(FileTypes.FixedWidth)" @bind-SelectedValue="CodeGenModel.FileType" />
+                        <label class="form-check-label" for="FixedWidth">Fixed Width</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card">
+                <h5 class="card-header">Delimiter</h5>
+                <div class="card-body">
+                    <div class="form-check form-check-inline">
+                        <RadioButtonNoLabel class="form-check-input" name="Delimiter" id="Comma" disabled="@CodeGenModel.DisabledIfFixedLength" TValue="Delimiters" ButtonValue="@(Delimiters.Comma)" @bind-SelectedValue="CodeGenModel.Delimiter" />
+                        <label class="form-check-label" for="Comma">Comma</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <RadioButtonNoLabel class="form-check-input" name="Delimiter" id="Tab" disabled="@CodeGenModel.DisabledIfFixedLength" TValue="Delimiters" ButtonValue="@(Delimiters.Tab)" @bind-SelectedValue="CodeGenModel.Delimiter" />
+                        <label class="form-check-label" for="Tab">Tab</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <RadioButtonNoLabel class="form-check-input" name="Delimiter" id="Pipe" disabled="@CodeGenModel.DisabledIfFixedLength" TValue="Delimiters" ButtonValue="@(Delimiters.Pipe)" @bind-SelectedValue="CodeGenModel.Delimiter" />
+                        <label class="form-check-label" for="Pipe">Pipe</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <RadioButtonNoLabel class="form-check-input" name="Delimiter" id="CustomDelimiter" disabled="@CodeGenModel.DisabledIfFixedLength" TValue="Delimiters" ButtonValue="@(Delimiters.Custom)" @bind-SelectedValue="CodeGenModel.Delimiter" />
+                        <label class="form-check-label" for="CustomDelimiter">Custom</label>
+                        <input class="d-inline ml-2" type="text" maxlength="1" size="3" @bind="@CodeGenModel.CustomDelimiter" disabled="@(CodeGenModel.Delimiter != Delimiters.Custom ? "true": null)" @bind:event="oninput" id="customdelimiter" name="customdelimiter" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col d-none">
+            <div class="card">
+                <h5 class="card-header">Options</h5>
+                <div class="card-body">
+                    <div class="form-check form-check-inline">
+                        <OnChangeCheckBox Name="IncludeCsvMapper" Value="@CodeGenModel.IncludeCsvMapper" class="form-check-input" />
+                        <label class="form-check-label" for="IncludeCsvMapper">Include Csv Mapper</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input type="checkbox"
+                               class="form-check-input"
+                               disabled="@CodeGenModel.DisabledIfDelimeted"
+                               @bind="@CodeGenModel.IncludeColumnDefinitions"
+                               id="IncludeColumnDefinitions" @key=@("IncludeColumnDefinitions") />
+                        <label class="form-check-label" for="IncludeColumnDefinitions">Include Column Definitions</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6">
+            <div class="card">
+                <h5 class="card-header">Fixed Width Values</h5>
+                <div class="card-subtitle px-2 mb-2 bg-info text-white">* One width value per line or CSV delimited on one line</div>
+                <div class="card-body" style="height: 240px">
+                    <textarea name="widthvalues"
+                              style="overflow: hidden; width: 100%; height: 100%; box-sizing: border-box"
+                              disabled="@CodeGenModel.DisabledIfDelimeted"
+                              @bind="@CodeGenModel.FixedWidthValues" />
+                </div>
+            </div>
+        </div>
+        <div class="col-6">
+            @*<a class="btn btn-primary" href="js/mock_data.csv" download="sample_mock_data" target="_blank">Download Sample CSV</a>
+                <a class="btn btn-secondary" href="js/fixed_mock_data.txt" download="sample_fixed_file" target="_blank">Download Sample Fixed Width File</a>*@
+            <button @onclick="@(() => DownloadSampleFile("mock_data.csv"))">Download Sample CSV</button>
+            <button @onclick="@(() => DownloadSampleFile("fixed_mock_data.txt"))">Download Sample Fixed Width</button>
+            <button @onclick="@PopulateFixedWidthValues">Populate values for fixed_data.txt</button>
+        </div>
+    </div>
+    <div class="row mt-2">
+        <div class="col">
+            <FileSelect @ref="fileSelect"></FileSelect>
+            <button @onclick="@SelectFiles">Select File</button>
+            <ConditionalDisplay Show="@(!String.IsNullOrWhiteSpace(CodeGenModel.SelectedFilePath))">
+                <input type="text" disabled name="filepath" @bind="@CodeGenModel.SelectedFilePath" />
+            </ConditionalDisplay>
+        </div>
+    </div>
+    <ConditionalDisplay Show="@(!CodeGenModel.ValidFixedWidthValues)">
+        <div class="row">
+            <div class="col">
+                <div class="alert alert-danger" role="alert">
+                    Fixed width values are not valid!
+                </div>
+            </div>
+        </div>
+    </ConditionalDisplay>
+    <ConditionalDisplay Show="@(CodeGenModel.FileTable.FileParsed)">
+        <div class="row overflow-auto">
+            <div class="col">
+                <div style="max-height: 400px;">
+                    <table class="table table-bordered table-striped">
+                        <thead class="thead-dark">
+                            <tr>
+                                <ForEach TItem="string" Items="CodeGenModel.FileTable.Headers.AsEnumerable()">
+                                    <ItemTemplate Context="header">
+                                        <th scope="col">@header</th>
+                                    </ItemTemplate>
+                                </ForEach>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <ForEach TItem="string[]" Items="CodeGenModel.FileTable.DataRows.AsEnumerable()">
+                                <ItemTemplate Context="rows">
+                                    <tr>
+                                        <ForEach TItem="string" Items="rows">
+                                            <ItemTemplate Context="col">
+                                                <td>@col</td>
+                                            </ItemTemplate>
+                                        </ForEach>
+                                    </tr>
+                                </ItemTemplate>
+                            </ForEach>
+                        </tbody>
+                    </table>
+
+                </div>
+            </div>
+        </div>
+    </ConditionalDisplay>
+</div>
+
+@code
+{
+    CodeGen CodeGenModel;
+    FileSelect fileSelect;
+
+    protected override void OnInitialized()
+    {
+        CodeGenModel = new CodeGen();
+    }
+
+    void DelimterChangedHander(ChangeEventArgs eventArgs)
+    {
+        if (eventArgs.Value.ToString() == FileTypes.Delimited.ToString())
+        {
+            CodeGenModel.IncludeColumnDefinitions = false;
+            CodeGenModel.FixedWidthValues = String.Empty;
+        }
+    }
+
+    async void DownloadSampleFile(string fileName)
+    {
+      
+        var content = await client.GetStringAsync($"sample-data/{fileName}");
+
+
+        //var response = await client.GetByteArrayAsync($"sample-data/{fileName}").ConfigureAwait(false);
+        var bytes = System.Text.Encoding.UTF8.GetBytes(content);// response;//.Content.ReadAsByteArrayAsync(); //System.Text.Encoding.UTF8.GetBytes(response.Content.ReadAsByteArrayAsync()));
+
+        //var bytes = System.IO.File.ReadAllBytes("sample-data/mock_data.csv");
+        if (fileName.ToLower().StartsWith("mock"))
+        {
+            await FileUtil.SaveAs(js, "sample_data.csv", bytes);
+            return;
+        }
+        await FileUtil.SaveAs(js, "fixed_data.txt", bytes);
+
+    }
+
+    void SelectFiles()
+    {
+        CodeGenModel.ValidFixedWidthValues = true;
+        CodeGenModel.FileTable = new FileTable();
+        if (CodeGenModel.FileType == FileTypes.Delimited)
+        {
+            ParseFileDelimited();
+        }
+        else
+        {
+            ParseFileFixedWidth();
+        }
+
+
+    }
+
+    private void ParseFileFixedWidth()
+    {
+
+        int[] fixedWidths = null;
+
+
+        if (!string.IsNullOrWhiteSpace(CodeGenModel.FixedWidthValues) && CodeGenModel.FixedWidthValues.Contains(","))
+        {
+            var widthParser = new DelimitedLineParser();
+            var results = widthParser.Parse(CodeGenModel.FixedWidthValues, ParserCodeGenBlazor.Delimiters.Comma);
+            fixedWidths = results.Values.Select(v => Int32.Parse(v)).ToArray();
+        }
+        else if (!string.IsNullOrWhiteSpace(CodeGenModel.FixedWidthValues))
+        {
+            fixedWidths = CodeGenModel.FixedWidthValues.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries).Select(v => Int32.Parse(v)).ToArray();
+        }
+
+        if (fixedWidths == null || fixedWidths.Length == 0)
+        {
+            CodeGenModel.ValidFixedWidthValues = false;
+            return;
+        }
+
+        var lineParser = new FixedWidthLineParser();
+        CodeGenModel.FileTable.FileParsed = false;
+        // Call SelectFiles with a (optional) callback. You can also wire up to a fileSelect.OnFilesSelected event
+        fileSelect.SelectFiles(async (selectedFiles) =>
+        {
+            SelectedFile file = selectedFiles.First();
+            // file has Name, Size, LastModifieds
+            CodeGenModel.SelectedFilePath = file.Name;
+            // Read the file's contents
+            using (var fileReader = fileSelect.GetFileReader(file))
+            {
+                // Alternatively - get a stream
+                using (var fileStream = await fileReader.GetFileStreamAsync())
+                {
+                    using (var strReader = new System.IO.StreamReader(fileStream))
+                    {
+
+                        int i = 0;
+                        string line = "";
+
+                        line = strReader.ReadLine();
+                        var results = lineParser.Parse(line, fixedWidths, true);
+                        CodeGenModel.FileTable.Headers = results.ToList();
+                        while (line != null)
+                        {
+                            line = strReader.ReadLine();
+                            //Console.WriteLine(line);
+                            try
+                            {
+                                var parsedResults = lineParser.Parse(line, fixedWidths, true);
+                                CodeGenModel.FileTable.DataRows.Add(parsedResults);
+                                i++;
+                            }
+                            catch (Exception)
+                            {
+                            }
+                        }
+
+                    }
+                }
+            }
+            CodeGenModel.FileTable.FileParsed = CodeGenModel.FileTable.Headers.Count > 0;
+            StateHasChanged();
+        });
+    }
+
+    private void ParseFileDelimited()
+    {
+        var selectedDelimiter = CodeGenModel.Delimiter;
+
+        var delimitedChar = selectedDelimiter switch
+        {
+            Delimiters.Comma => ParserCodeGenBlazor.Delimiters.Comma,
+            Delimiters.Tab => ParserCodeGenBlazor.Delimiters.Tab,
+            Delimiters.Pipe => ParserCodeGenBlazor.Delimiters.Pipe,
+            Delimiters.Custom => CodeGenModel.CustomDelimiter[0],
+        };
+
+        var lineParser = new DelimitedLineParser();
+
+        CodeGenModel.FileTable.FileParsed = false;
+        // Call SelectFiles with a (optional) callback. You can also wire up to a fileSelect.OnFilesSelected event
+        fileSelect.SelectFiles(async (selectedFiles) =>
+        {
+            SelectedFile file = selectedFiles.First();
+            // file has Name, Size, LastModifieds
+            CodeGenModel.SelectedFilePath = file.Name;
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            // Read the file's contents
+            using (var fileReader = fileSelect.GetFileReader(file))
+            {
+                // Alternatively - get a stream
+                using (var fileStream = await fileReader.GetFileStreamAsync())
+                {
+                    using (var strReader = new System.IO.StreamReader(fileStream))
+                    {
+
+                        int i = 0;
+                        string line = "";
+
+                        line = strReader.ReadLine();
+                        var results = lineParser.Parse(line, delimitedChar);
+                        CodeGenModel.FileTable.Headers = results.Values.ToList();
+                        while (line != null)
+                        {
+                            line = strReader.ReadLine();
+                            //Console.WriteLine(line);
+                            try
+                            {
+                                var parsedResults = lineParser.Parse(line, delimitedChar);
+                                CodeGenModel.FileTable.DataRows.Add(parsedResults.Values);
+                                i++;
+                                sb.AppendLine(line);
+
+                            }
+                            catch (Exception)
+                            {
+                            }
+                        }
+
+                    }
+                }
+            }
+            CodeGenModel.FileTable.FileParsed = CodeGenModel.FileTable.Headers.Count > 0;
+            //var bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+            //await FileUtil.SaveAs(js, "data.csv", bytes);
+            //await js.InvokeVoidAsync("clipboardCopy.copyText", sb.ToString());
+            StateHasChanged();
+        });
+    }
+
+    void PopulateFixedWidthValues()
+    {
+        CodeGenModel.FixedWidthValues = "5,30,30,60,15,30";
+    }
+
+    public class FileTable
+    {
+        public List<string> Headers { get; set; } = new List<string>();
+        public List<string[]> DataRows { get; set; } = new List<string[]>();
+        public bool FileParsed { get; set; }
+    }
+
+    public class CodeGen
+    {
+        public FileTypes FileType { get; set; }
+        public Delimiters Delimiter { get; set; }
+        public string CustomDelimiter { get; set; }
+        public bool IncludeCsvMapper { get; set; }
+        public bool IncludeColumnDefinitions { get; set; }
+        public string FixedWidthValues { get; set; }
+        public string SelectedFilePath { get; set; } = string.Empty;
+        public string DisabledIfDelimeted { get { return this.FileType != FileTypes.FixedWidth ? "true" : null; } }
+        public string DisabledIfFixedLength { get { return this.FileType == FileTypes.FixedWidth ? "true" : null; } }
+        public FileTable FileTable { get; set; } = new FileTable();
+        public bool ValidFixedWidthValues { get; set; } = true;
+    }
+
+    public enum FileTypes
+    {
+        Delimited,
+        FixedWidth
+    }
+
+    public enum Delimiters
+    {
+        Comma,
+        Tab,
+        Pipe,
+        Custom
+    }
+
+}

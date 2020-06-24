@@ -1,0 +1,55 @@
+﻿@page "/fetchdata"
+@inject HttpClient Http
+
+<h1>Weather forecast</h1>
+
+<p>This component demonstrates fetching data from the server.</p>
+
+<ConditionalDisplay Show="@(forecasts == null)">
+        <p><em>Loading...</em></p>
+</ConditionalDisplay>
+<ConditionalDisplay Show="@(forecasts != null)">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Temp. (C)</th>
+                <th>Temp. (F)</th>
+                <th>Summary</th>
+            </tr>
+        </thead>
+        <tbody>
+            <ForEach Items="@(forecasts.AsEnumerable())" TItem="WeatherForecast">
+                <ItemTemplate Context="item">
+                    <tr>
+                        <td>@item.Date.ToShortDateString()</td>
+                        <td>@item.TemperatureC</td>
+                        <td>@item.TemperatureF</td>
+                        <td>@item.Summary</td>
+                    </tr>
+                </ItemTemplate>
+             </ForEach>
+        </tbody>
+    </table>
+</ConditionalDisplay>
+
+@code {
+    WeatherForecast[] forecasts;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        forecasts = await Http.GetJsonAsync<WeatherForecast[]>("sample-data/weather.json");
+    }
+
+    class WeatherForecast
+    {
+        public DateTime Date { get; set; }
+
+        public int TemperatureC { get; set; }
+
+        public int TemperatureF { get; set; }
+
+        public string Summary { get; set; }
+    }
+}
